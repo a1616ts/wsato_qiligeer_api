@@ -50,6 +50,7 @@ MIDDLEWARE_CLASSES = [
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    #'wsato_qiligeer_api.middlewares.hookfunc',
 ]
 
 ROOT_URLCONF = 'wsato_qiligeer_api.urls'
@@ -79,7 +80,7 @@ WSGI_APPLICATION = 'wsato_qiligeer_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'test_db',
+        'NAME': 'test_db2',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': '',
