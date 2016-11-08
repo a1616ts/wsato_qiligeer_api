@@ -16,7 +16,6 @@ class CreateVm(APIView):
         return Response(serializer.data)
 
     def post(self, request, format=None):
-        pass
         if request.data.get('create_vm'):
             create_vm = request.data.get('create_vm')
         else:
@@ -33,35 +32,15 @@ class CreateVm(APIView):
         channel.basic_publish(exchange='',
                               routing_key='from_api_to_middleware',
                               body='create_vm')
-        print(" [x] Sent 'Hello World!'")
         connection.close()
 
         serializer = CreateVmSerializer({
-            'create_vm': create_vm,
+            'create_vm': 'ok',
         })
         return Response(serializer.data)
 
     def put(self, request, format=None):
         pass
-        if request.data.get('create_vm'):
-            create_vm = request.data.get('create_vm')
-        else:
-            raise exceptions.ValidationError(detail=None)
-        connection = pika.BlockingConnection(pika.ConnectionParameters(
-                host='localhost'))
-        channel = connection.channel()
-        channel.queue_declare(queue='from_api_to_middleware', durable=True)
-        properties = pika.BasicProperties(
-                content_type='text/plain',
-                delivery_mode=2)
-        channel.basic_publish(exchange='',
-                              routing_key='from_api_to_middleware',
-                              body='create_vm')
-        connection.close()
-        serializer = CreateVmSerializer({
-            'create_vm': 'a',
-        })
-        return Response(serializer.data)
 
     def delete(self, request, format=None):
         pass
