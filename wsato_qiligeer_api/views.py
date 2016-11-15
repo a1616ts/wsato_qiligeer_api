@@ -1,25 +1,39 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import exceptions
-from wsato_qiligeer_api.serializers import CreateVmSerializer
+from wsato_qiligeer_api.serializers import VmSerializer
 import pika
+import json
+import dataset
 
-class CreateVm(APIView):
+class Vm(APIView):
     def get(self, request, format=None):
-        if request.GET.get('str'):
-            str = request.GET['str']
+        if request.GET.get('name'):
+            name = request.GET['name']
         else:
             raise exceptions.ValidationError(detail=None)
-        serializer = CreateVmSerializer({
-            'str': str,
+
+        # TODO Use Django Model?
+        db = dataset.connect('mysql://root@127.0.0.1/test')
+        table = db['domains']
+        results = table.find_one(vm_name = name)
+
+        serializer = VmSerializer({
+            'status': results['status'] if results != None else 'no vm',
         })
         return Response(serializer.data)
 
     def post(self, request, format=None):
-        if request.data.get('create_vm'):
-            create_vm = request.data.get('create_vm')
+        # TODO
+        if request.data.get('ope') == 'create' :
+            name = request.data.get('name')
         else:
             raise exceptions.ValidationError(detail=None)
+
+        enqueue_message = {
+            'ope'  : 'create',
+            'name' : name
+        }
 
         connection = pika.BlockingConnection(pika.ConnectionParameters(
                 host='localhost'))
@@ -29,15 +43,35 @@ class CreateVm(APIView):
         properties = pika.BasicProperties(
                 content_type='text/plain',
                 delivery_mode=2)
-        channel.basic_publish(exchange='',
-                              routing_key='from_api_to_middleware',
-                              body='create_vm')
+        channel.basic_publish(exchange = '',
+                              routing_key = 'from_api_to_middleware',
+                              body = json.dumps(enqueue_message))
         connection.close()
 
-        serializer = CreateVmSerializer({
+        serializer = VmSerializer({
             'create_vm': 'ok',
         })
         return Response(serializer.data)
+
+    def put(self, request, format=None):
+        pass
+
+    def delete(self, request, format=None):
+        pass
+
+class State(APIView):
+    def get(self, request, format=None):
+        if request.GET.get('getStatus'):
+            str = request.GET['str']
+        else:
+            raise exceptions.ValidationError(detail=None)
+        serializer = VmSerializer({
+            'str': str,
+        })
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        pass
 
     def put(self, request, format=None):
         pass
