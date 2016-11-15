@@ -39,8 +39,9 @@ class Vm(APIView):
             'name' : name
         }
 
+        credentials= pika.PlainCredentials('server1_api', '34FS1Ajkns')
         connection = pika.BlockingConnection(pika.ConnectionParameters(
-                host = 'localhost'))
+                virtual_host = '/server1', credentials = credentials))
         channel = connection.channel()
 
         channel.queue_declare(queue = 'from_api_to_middleware', durable = True)
