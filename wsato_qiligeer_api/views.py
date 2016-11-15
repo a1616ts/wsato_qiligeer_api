@@ -10,15 +10,15 @@ import dataset
 
 class Vm(APIView):
     def get(self, request, format = None):
-        if request.GET.get('name'):
-            name = request.GET['name']
+        if request.GET.get('vm_name'):
+            vm_name = request.GET['vm_name']
         else:
             raise exceptions.ValidationError(detail=None)
 
         # TODO Use Django Model?
         db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
         table = db['domains']
-        results = table.find_one(vm_name = name)
+        results = table.find_one(vm_name = vm_name)
 
         if results == None :
             return Response(status = status.HTTP_404_NOT_FOUND)
@@ -29,14 +29,14 @@ class Vm(APIView):
             return Response(serializer.data)
 
     def post(self, request, format = None):
-        if request.data.get('name'):
-            name = request.data.get('name')
+        if request.data.get('vm_name'):
+            vm_name = request.data.get('vm_name')
         else:
             raise exceptions.ValidationError(detail = None)
 
         enqueue_message = {
             'ope'  : 'create',
-            'name' : name
+            'name' : vm_name
         }
 
         credentials= pika.PlainCredentials('server1_api', '34FS1Ajkns')
