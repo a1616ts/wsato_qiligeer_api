@@ -8,14 +8,14 @@ import json
 import dataset
 
 class Vm(APIView):
-    def get(self, request, format=None):
+    def get(self, request, format = None):
         if request.GET.get('name'):
             name = request.GET['name']
         else:
             raise exceptions.ValidationError(detail=None)
 
-        # TODO Use Django Model?
-        db = dataset.connect('mysql://root@127.0.0.1/test')
+        # TODO Should we use Django model?
+        db = dataset.connect('mysql://root@127.0.0.1/wsato_qiligeer')
         table = db['domains']
         results = table.find_one(vm_name = name)
 
@@ -24,11 +24,11 @@ class Vm(APIView):
         })
         return Response(serializer.data)
 
-    def post(self, request, format=None):
+    def post(self, request, format = None):
         if name = request.data.get('name'):
             name = request.data.get('name')
         else:
-            raise exceptions.ValidationError(detail=None)
+            raise exceptions.ValidationError(detail = None)
 
         enqueue_message = {
             'ope'  : 'create',
@@ -36,13 +36,13 @@ class Vm(APIView):
         }
 
         connection = pika.BlockingConnection(pika.ConnectionParameters(
-                host='localhost'))
+                host = 'localhost'))
         channel = connection.channel()
 
-        channel.queue_declare(queue='from_api_to_middleware', durable=True)
+        channel.queue_declare(queue = 'from_api_to_middleware', durable = True)
         properties = pika.BasicProperties(
-                content_type='text/plain',
-                delivery_mode=2)
+                content_type = 'text/plain',
+                delivery_mode = 2)
         channel.basic_publish(exchange = '',
                               routing_key = 'from_api_to_middleware',
                               body = json.dumps(enqueue_message))
@@ -53,12 +53,12 @@ class Vm(APIView):
         })
         return Response(serializer.data)
 
-    def put(self, request, format=None):
+    def put(self, request, format = None):
         # TODO
-        # receive suspend and resume, close
-        # enqueue to from_api_to_middleware
+        # Receive suspend and resume, close
+        # Enqueue to from_api_to_middleware
         pass
 
-    def delete(self, request, format=None):
+    def delete(self, request, format = None):
         # TODO
         pass
