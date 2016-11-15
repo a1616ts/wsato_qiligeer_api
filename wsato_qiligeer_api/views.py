@@ -1,3 +1,4 @@
+# coding: utf-8
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import exceptions
@@ -10,15 +11,16 @@ import dataset
 
 class Vm(APIView):
     def get(self, request, format = None):
-        if request.GET.get('vm_name'):
-            vm_name = request.GET['vm_name']
-        else:
-            raise exceptions.ValidationError(detail=None)
+        request_get = request.GET
+        display_name = request_get.get('name')
+        user_id = request_get.get('user_id')
+        if display_name == None or user_id == None:
+            raise exceptions.ValidationError(detail = None)
 
         # TODO Use Django Model?
         db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
         table = db['domains']
-        results = table.find_one(vm_name = vm_name)
+        results = table.find_one(display_name = display_name, user_id = user_id)
 
         if results == None :
             return Response(status = status.HTTP_404_NOT_FOUND)
@@ -29,18 +31,15 @@ class Vm(APIView):
             return Response(serializer.data)
 
     def post(self, request, format = None):
-        if request.data.get('vm_name'):
-            vm_name = request.data.get('vm_name')
-        else:
+        request_get = request.data
+        display_name = request_get.get('name')
+        user_id = request_get.get('user_id')
+
+        if display_name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
-        enqueue_message = {
-            'ope'  : 'create',
-            'name' : vm_name
-        }
-
-        credentials= pika.PlainCredentials('server1_api', '34FS1Ajkns')
-        connection = pika.BlockingConnection(pika.ConnectionParameters(
+        credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
+        connection  = pika.BlockingConnection(pika.ConnectionParameters(
                 virtual_host = '/server1', credentials = credentials))
         channel = connection.channel()
 
@@ -48,6 +47,13 @@ class Vm(APIView):
         properties = pika.BasicProperties(
                 content_type = 'text/plain',
                 delivery_mode = 2)
+
+        enqueue_message = {
+            'ope'          : 'create',
+            'user_id'      : user_id,
+            'display_name' : display_name
+        }
+
         channel.basic_publish(exchange = '',
                               routing_key = 'from_api_to_middleware',
                               body = json.dumps(enqueue_message))
