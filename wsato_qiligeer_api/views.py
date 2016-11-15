@@ -14,7 +14,7 @@ class Vm(APIView):
             raise exceptions.ValidationError(detail=None)
 
         # TODO Use Django Model?
-        db = dataset.connect('mysql://root@127.0.0.1/test')
+        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
         table = db['domains']
         results = table.find_one(vm_name = name)
 

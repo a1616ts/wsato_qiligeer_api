@@ -79,9 +79,9 @@ WSGI_APPLICATION = 'wsato_qiligeer_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'test_db2',
-        'USER': 'root',
-        'PASSWORD': '',
+        'NAME': 'wsato_qiligeer',
+        'USER': 'api_user',
+        'PASSWORD': 'apiUser@1115',
         'HOST': '',
         'PORT': '',
     }
