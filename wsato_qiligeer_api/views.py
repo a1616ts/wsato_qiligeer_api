@@ -58,23 +58,3 @@ class Vm(APIView):
 
     def delete(self, request, format=None):
         pass
-
-class State(APIView):
-    def get(self, request, format=None):
-        if request.GET.get('getStatus'):
-            str = request.GET['str']
-        else:
-            raise exceptions.ValidationError(detail=None)
-        serializer = VmSerializer({
-            'str': str,
-        })
-        return Response(serializer.data)
-
-    def post(self, request, format=None):
-        pass
-
-    def put(self, request, format=None):
-        pass
-
-    def delete(self, request, format=None):
-        pass
