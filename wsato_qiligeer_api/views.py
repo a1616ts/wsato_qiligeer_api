@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import exceptions
 from wsato_qiligeer_api.serializers import StatusSerializer
 from wsato_qiligeer_api.serializers import ResultSerializer
+from rest_framework import status
 import pika
 import json
 import dataset
@@ -19,13 +20,16 @@ class Vm(APIView):
         table = db['domains']
         results = table.find_one(vm_name = name)
 
-        serializer = StatusSerializer({
-            'status': results['status'] if results != None else 'no vm',
-        })
-        return Response(serializer.data)
+        if results == None :
+            return Response(status = status.HTTP_404_NOT_FOUND)
+        else :
+            serializer = StatusSerializer({
+                'status': results['status'],
+            })
+            return Response(serializer.data)
 
     def post(self, request, format = None):
-        if name = request.data.get('name'):
+        if request.data.get('name'):
             name = request.data.get('name')
         else:
             raise exceptions.ValidationError(detail = None)
