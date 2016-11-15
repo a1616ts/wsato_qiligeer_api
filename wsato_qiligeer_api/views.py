@@ -1,7 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import exceptions
-from wsato_qiligeer_api.serializers import VmSerializer
+from wsato_qiligeer_api.serializers import StatusSerializer
+from wsato_qiligeer_api.serializers import ResultSerializer
 import pika
 import json
 import dataset
@@ -18,14 +19,13 @@ class Vm(APIView):
         table = db['domains']
         results = table.find_one(vm_name = name)
 
-        serializer = VmSerializer({
+        serializer = StatusSerializer({
             'status': results['status'] if results != None else 'no vm',
         })
         return Response(serializer.data)
 
     def post(self, request, format=None):
-        # TODO
-        if request.data.get('ope') == 'create' :
+        if name = request.data.get('name'):
             name = request.data.get('name')
         else:
             raise exceptions.ValidationError(detail=None)
@@ -48,13 +48,17 @@ class Vm(APIView):
                               body = json.dumps(enqueue_message))
         connection.close()
 
-        serializer = VmSerializer({
-            'create_vm': 'ok',
+        serializer = ResultSerializer({
+            'result': 'ok',
         })
         return Response(serializer.data)
 
     def put(self, request, format=None):
+        # TODO
+        # receive suspend and resume, close
+        # enqueue to from_api_to_middleware
         pass
 
     def delete(self, request, format=None):
+        # TODO
         pass
