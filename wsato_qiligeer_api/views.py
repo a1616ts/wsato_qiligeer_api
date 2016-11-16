@@ -3,7 +3,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import exceptions
 from wsato_qiligeer_api.serializers import StatusSerializer
-from wsato_qiligeer_api.serializers import ResultSerializer
 from rest_framework import status
 import pika
 import json
@@ -38,6 +37,12 @@ class Vm(APIView):
         if display_name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
+        # Validation
+        table = db['domains']
+        results = table.find_one(display_name = display_name, user_id = user_id)
+        if results != None :
+            return Response(status = status.HTTP_403_FORBIDDEN)
+
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
         connection  = pika.BlockingConnection(pika.ConnectionParameters(
                 virtual_host = '/server1', credentials = credentials))
@@ -58,11 +63,7 @@ class Vm(APIView):
                               routing_key = 'from_api_to_middleware',
                               body = json.dumps(enqueue_message))
         connection.close()
-
-        serializer = ResultSerializer({
-            'result': 'ok',
-        })
-        return Response(serializer.data)
+        return Response(status = status.HTTP_202_ACCEPTED)
 
     def put(self, request, format = None):
         # TODO
