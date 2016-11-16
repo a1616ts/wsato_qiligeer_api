@@ -16,18 +16,20 @@ class Vm(APIView):
         if display_name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
-        # TODO Use Django Model?
+        # TODO Should we use Django's model?
         db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
         table = db['domains']
         results = table.find_one(display_name = display_name, user_id = user_id)
 
         if results == None :
             return Response(status = status.HTTP_404_NOT_FOUND)
-        else :
-            serializer = StatusSerializer({
-                'status': results['status'],
-            })
-            return Response(serializer.data)
+
+        # TODO Check server's free space
+
+        serializer = StatusSerializer({
+            'status': results['status'],
+        })
+        return Response(serializer.data)
 
     def post(self, request, format = None):
         request_get = request.data
