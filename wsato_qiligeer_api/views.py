@@ -37,7 +37,8 @@ class Vm(APIView):
         if display_name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
-        # Validation
+        # TODO Validation
+        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
         table = db['domains']
         results = table.find_one(display_name = display_name, user_id = user_id)
         if results != None :
