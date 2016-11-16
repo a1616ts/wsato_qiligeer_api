@@ -69,7 +69,8 @@ class Vm(APIView):
         enqueue_message = {
             'ope'          : 'create',
             'user_id'      : user_id,
-            'display_name' : display_name
+            'display_name' : display_name,
+            'size'         : size
         }
 
         channel.basic_publish(exchange = '',
