@@ -20,21 +20,19 @@ class Vm(APIView):
         table = db['domains']
         results = table.find_one(display_name = display_name, user_id = user_id)
 
-        if results == None :
+        if results == None:
             return Response(status = status.HTTP_404_NOT_FOUND)
-
-        # TODO Check server's free space
-
-        serializer = StatusSerializer({
-            'status': results['status'],
-        })
-        return Response(serializer.data)
+        else:
+            serializer = StatusSerializer({
+                'status': results['status'],
+            })
+            return Response(serializer.data)
 
     def post(self, request, format = None):
         request_get = request.data
         display_name = request_get.get('name')
         user_id = request_get.get('user_id')
-
+        size = request_get.get('size')
         if display_name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
@@ -43,6 +41,20 @@ class Vm(APIView):
         results = table.find_one(display_name = display_name, user_id = user_id)
         if results != None :
             return Response(status = status.HTTP_403_FORBIDDEN)
+
+        # Check disk size
+        if size == None:
+            size = 10
+        else:
+            size = int(size)
+
+        vc_servers_table = db['vc_servers']
+        results = vc_servers_table.find_one(order_by = '-free_size_gb')
+        free_size_gb = int(results['free_size_gb'])
+
+        if free_size_gb < size:
+            return Response(status = status.HTTP_503_SERVICE_UNAVAILABLE)
+        db.close()
 
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
         connection  = pika.BlockingConnection(pika.ConnectionParameters(
@@ -67,10 +79,44 @@ class Vm(APIView):
         return Response(status = status.HTTP_202_ACCEPTED)
 
     def put(self, request, format = None):
-        # TODO
-        # Receive suspend and resume
-        # Enqueue to from_api_to_middleware
-        pass
+        request_get = request.data
+        ope = request_get.get('ope')
+        display_name = request_get.get('name')
+        user_id = request_get.get('user_id')
+
+        if display_name == None or user_id == None or ope == None:
+            raise exceptions.ValidationError(detail = None)
+
+        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
+        table = db['domains']
+        results = table.find_one(display_name = display_name, user_id = user_id)
+        if results == None :
+            return Response(status = status.HTTP_404_NOT_FOUND)
+
+        if (results['status'] == 'active' and ope == 'resume') or (results['status'] == 'inactive' and ope == 'suspend'):
+            return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
+
+        credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
+        connection  = pika.BlockingConnection(pika.ConnectionParameters(
+                virtual_host = '/server1', credentials = credentials))
+        channel = connection.channel()
+
+        channel.queue_declare(queue = 'from_api_to_middleware', durable = True)
+        properties = pika.BasicProperties(
+                content_type = 'text/plain',
+                delivery_mode = 2)
+
+        enqueue_message = {
+            'ope'          : ope,
+            'user_id'      : user_id,
+            'display_name' : display_name
+        }
+
+        channel.basic_publish(exchange = '',
+                              routing_key = 'from_api_to_middleware',
+                              body = json.dumps(enqueue_message))
+        connection.close()
+        return Response(status = status.HTTP_202_ACCEPTED)
 
     def delete(self, request, format = None):
         request_get = request.data
