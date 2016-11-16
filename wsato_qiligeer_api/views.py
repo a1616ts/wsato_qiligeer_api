@@ -54,7 +54,6 @@ class Vm(APIView):
 
         if free_size_gb < size:
             return Response(status = status.HTTP_503_SERVICE_UNAVAILABLE)
-        db.close()
 
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
         connection  = pika.BlockingConnection(pika.ConnectionParameters(
