@@ -38,7 +38,7 @@ class Vm(APIView):
 
         db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
         table = db['domains']
-        results = table.find_one(display_name = display_name, user_id = user_id)
+        rcesults = table.find_one(display_name = display_name, user_id = user_id)
         if results != None :
             return Response(status = status.HTTP_403_FORBIDDEN)
 
@@ -79,15 +79,23 @@ class Vm(APIView):
         return Response(status = status.HTTP_202_ACCEPTED)
 
     def put(self, request, format = None):
-        pass
+        # kokonikaku
 
-    def delete(self, request, format = None):
+        # suspend
+        # resume
         request_get = request.data
         display_name = request_get.get('name')
         user_id = request_get.get('user_id')
+        ope = request_get.get('ope')
 
-        if display_name == None or user_id == None:
+        #
+
+        if display_name == None or user_id == None or ope == None:
             raise exceptions.ValidationError(detail = None)
+
+
+
+
 
         db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
         table = db['domains']
@@ -95,6 +103,57 @@ class Vm(APIView):
         if results == None :
             return Response(status = status.HTTP_404_NOT_FOUND)
 
+        # inactive  suspend
+        # active
+        if (results['status'] == 'inactive' and ope =='suspend') and(results['status'] == 'active' and ope =='resume'):
+            return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
+
+        credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
+        connection  = pika.BlockingConnection(pika.ConnectionParameters(
+                virtual_host = '/server1', credentials = credentials))
+        channel = connection.channel()
+
+        channel.queue_declare(queue = 'from_api_to_middleware', durable = True)
+        properties = pika.BasicProperties(
+                content_type = 'text/plain',
+                delivery_mode = 2)
+
+        #
+        enqueue_message = {
+            'ope'          : ope,
+            'user_id'      : user_id,
+            'display_name' : display_name
+        }
+
+
+        channel.basic_publish(exchange = '',
+                              routing_key = 'from_api_to_middleware',
+                              body = json.dumps(enqueue_message))
+        connection.close()
+        return Response(status = status.HTTP_202_ACCEPTED)
+
+        pass
+
+    def delete(self, request, format = None):
+        request_get = request.data
+        display_name = request_get.get('name')
+        user_id = request_get.get('user_id')
+        ope = request_get.get('ope')
+
+        #
+        if display_name == None or user_id == None:
+            raise exceptions.ValidationError(detail = None)
+
+
+
+        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
+        table = db['domains']
+        results = table.find_one(display_name = display_name, user_id = user_id)
+        if results == None :
+            return Response(status = status.HTTP_404_NOT_FOUND)
+
+        # inactive  suspend
+        # active
         if results['status'] == 'destroy':
             return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -108,11 +167,13 @@ class Vm(APIView):
                 content_type = 'text/plain',
                 delivery_mode = 2)
 
+        #
         enqueue_message = {
-            'ope'          : 'destroy',
+            'ope'          : 'destroy', #
             'user_id'      : user_id,
             'display_name' : display_name
         }
+
 
         channel.basic_publish(exchange = '',
                               routing_key = 'from_api_to_middleware',
