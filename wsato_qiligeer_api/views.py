@@ -2,44 +2,69 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import exceptions
-from wsato_qiligeer_api.serializers import StatusSerializer
 from rest_framework import status
 import pika
 import json
 import dataset
+from wsato_qiligeer_api.models import Domains, VcServers
+from django.core import serializers
+import simplejson
 
 class Vm(APIView):
     def get(self, request, format = None):
         request_get = request.GET
         display_name = request_get.get('name')
         user_id = request_get.get('user_id')
-        if display_name == None or user_id == None:
+        if user_id == None:
             raise exceptions.ValidationError(detail = None)
 
-        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
-        table = db['domains']
-        results = table.find_one(display_name = display_name, user_id = user_id)
+        if display_name == None:
+            domains = Domains.objects.filter(user_id = user_id)
+            if len(domains) < 1 :
+                return Response(status = status.HTTP_404_NOT_FOUND)
+            else:
+                results = []
+                for domain in domains:
+                    results.append({
+                        'name': domain.display_name,
+                        'status': domain.status,
+                        'size': domain.size,
+                        'ram': domain.ram,
+                        'vcpus': domain.vcpus,
+                        'ip': domain.ip,
+                        'key_path': domain.key_path,
+                    })
+                return Response(results)
 
-        if results == None:
-            return Response(status = status.HTTP_404_NOT_FOUND)
         else:
-            serializer = StatusSerializer({
-                'status': results['status'],
-            })
-            return Response(serializer.data)
+            domain = Domains.objects.filter(user_id = user_id, display_name = display_name)[0]
+            if domain == None:
+                return Response(status = status.HTTP_404_NOT_FOUND)
+            else:
+                return Response({
+                    'name': domain.display_name,
+                    'status': domain.status,
+                    'size': domain.size,
+                    'ram': domain.ram,
+                    'vcpus': domain.vcpus,
+                    'ip': domain.ip,
+                    'key_path': domain.key_path,
+                })
 
     def post(self, request, format = None):
         request_get = request.data
+
         display_name = request_get.get('name')
         user_id = request_get.get('user_id')
         size = request_get.get('size')
+        ram = request_get.get('ram')
+        vcpus = request_get.get('vcpus')
+
         if display_name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
-        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
-        table = db['domains']
-        rcesults = table.find_one(display_name = display_name, user_id = user_id)
-        if results != None :
+        domain = Domains.objects.filter(display_name = display_name, user_id = user_id)[0]
+        if domain != None :
             return Response(status = status.HTTP_403_FORBIDDEN)
 
         # Check disk size
@@ -48,11 +73,10 @@ class Vm(APIView):
         else:
             size = int(size)
 
-        vc_servers_table = db['vc_servers']
-        results = vc_servers_table.find_one(order_by = '-free_size_gb')
-        free_size_gb = int(results['free_size_gb'])
+        vc_server = VcServers.objects.order_by('-free_size_gb')[0]
+        free_size_gb = int(vc_server['free_size_gb'])
 
-        if free_size_gb < size:
+        if free_size_gb + size < size:
             return Response(status = status.HTTP_503_SERVICE_UNAVAILABLE)
 
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
@@ -69,7 +93,9 @@ class Vm(APIView):
             'ope'          : 'create',
             'user_id'      : user_id,
             'display_name' : display_name,
-            'size'         : size
+            'size'         : size,
+            'ram'          : ram,
+            'vcpus'        : vcpus
         }
 
         channel.basic_publish(exchange = '',
@@ -82,18 +108,17 @@ class Vm(APIView):
         request_get = request.data
         display_name = request_get.get('name')
         user_id = request_get.get('user_id')
-        ope = request_get.get('ope')
+        op = request_get.get('op')
 
-        if display_name == None or user_id == None or ope == None:
+        if display_name == None or user_id == None or op == None:
             raise exceptions.ValidationError(detail = None)
 
-        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
-        table = db['domains']
-        results = table.find_one(display_name = display_name, user_id = user_id)
-        if results == None :
+        domain = Domains.objects.filter(display_name = display_name, user_id = user_id)[0]
+        if domain == None :
             return Response(status = status.HTTP_404_NOT_FOUND)
 
-        if (results['status'] == 'inactive' and ope =='suspend') and (results['status'] == 'active' and ope =='resume') and (results['status'] == 'running' and ope =='start'):
+        # TODO 確認
+        if (domain.status == 'inactive' and op =='suspend') and (domain.status == 'active' and op =='resume') and (domain.status == 'running' and op =='start'):
             return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
 
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
@@ -107,7 +132,7 @@ class Vm(APIView):
                 delivery_mode = 2)
 
         enqueue_message = {
-            'ope'          : ope,
+            'op'          : op,
             'user_id'      : user_id,
             'display_name' : display_name
         }
@@ -122,18 +147,16 @@ class Vm(APIView):
         request_get = request.data
         display_name = request_get.get('name')
         user_id = request_get.get('user_id')
-        ope = request_get.get('ope')
+        op = request_get.get('op')
 
         if display_name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
-        db = dataset.connect('mysql://api_user:apiUser@1115@127.0.0.1/wsato_qiligeer')
-        table = db['domains']
-        results = table.find_one(display_name = display_name, user_id = user_id)
-        if results == None :
+        domain = Domains.objects.filter(display_name = display_name, user_id = user_id)[0]
+        if domain == None:
             return Response(status = status.HTTP_404_NOT_FOUND)
 
-        if results['status'] == 'destroy':
+        if domain.status == 'destroy':
             return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
 
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
@@ -147,7 +170,7 @@ class Vm(APIView):
                 delivery_mode = 2)
 
         enqueue_message = {
-            'ope'          : 'destroy',
+            'op'          : 'destroy',
             'user_id'      : user_id,
             'display_name' : display_name
         }
