@@ -24,16 +24,20 @@ class Vm(APIView):
                 return Response(status = status.HTTP_404_NOT_FOUND)
             else:
                 results = []
+                count = 1
                 for domain in domains:
                     results.append({
+                        'id' : count,
                         'name': domain.display_name,
                         'status': domain.status,
                         'size': domain.size,
                         'ram': domain.ram,
                         'vcpus': domain.vcpus,
-                        'ip': domain.ip,
-                        'key_path': domain.key_path,
+                        'ip': domain.ipv4_address,
+                        'key_path': domain.sshkey_path,
                     })
+                    print(results)
+                    count = count + 1
                 return Response(results)
 
         else:
@@ -92,7 +96,7 @@ class Vm(APIView):
         enqueue_message = {
             'ope'          : 'create',
             'user_id'      : user_id,
-            'display_name' : display_name,
+            'name' : name,
             'size'         : size,
             'ram'          : ram,
             'vcpus'        : vcpus
@@ -117,8 +121,10 @@ class Vm(APIView):
         if domain == None :
             return Response(status = status.HTTP_404_NOT_FOUND)
 
-        # TODO 確認
-        if (domain.status == 'inactive' and op =='suspend') and (domain.status == 'active' and op =='resume') and (domain.status == 'running' and op =='start'):
+        if (op == 'resume' and domain.status != 'inactive') \
+            or (op == 'suspend' and domain.status != 'active') \
+            or (op == 'start' and domain.status != 'stop')  \
+            or (op == 'stop' and domain.status not in [ 'active', 'inactive']):
             return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
 
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
@@ -156,7 +162,7 @@ class Vm(APIView):
         if domain == None:
             return Response(status = status.HTTP_404_NOT_FOUND)
 
-        if domain.status == 'destroy':
+        if domain.status != 'close':
             return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
 
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
