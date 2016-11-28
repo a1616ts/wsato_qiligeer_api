@@ -16,7 +16,7 @@ class Vm(APIView):
         display_name = request_get.get('name')
         user_id = request_get.get('user_id')
         if user_id == None:
-            raise exceptions.ValidationError(detail = None)
+            raise Response(status = status.HTTP_403_FORBIDDEN)
 
         if display_name == None:
             domains = Domains.objects.filter(user_id = user_id)
@@ -71,7 +71,6 @@ class Vm(APIView):
         if domain != None :
             return Response(status = status.HTTP_403_FORBIDDEN)
 
-        # Check disk size
         if size == None:
             size = 10
         else:

@@ -79,8 +79,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'wsato_qiligeer',
-        'USER': 'root',
-        'PASSWORD': '',
+        'USER': 'api_user',
+        'PASSWORD': 'apiUser@1115',
         'HOST': '',
         'PORT': '',
     }
