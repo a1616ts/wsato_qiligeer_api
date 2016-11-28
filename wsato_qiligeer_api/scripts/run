@@ -1,0 +1,2 @@
+#!/bin/sh
+python /home/solar/wsato_qiligeer_api/manage.py runserver 8000 &
