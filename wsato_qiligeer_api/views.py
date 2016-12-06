@@ -12,15 +12,15 @@ import simplejson
 
 class Vm(APIView):
     def get(self, request, format = None):
-        request_get = request.GET
-        display_name = request_get.get('name')
-        user_id = request_get.get('user_id')
+        data = request.GET
+        display_name = data.get('name')
+        user_id = data.get('user_id')
         if user_id == None:
             return Response(status = status.HTTP_403_FORBIDDEN)
 
         if display_name == None:
             domains = Domains.objects.filter(user_id = user_id)
-            if len(domains) < 1 :
+            if domains.count() < 1 :
                 return Response(status = status.HTTP_404_NOT_FOUND)
             else:
                 results = []
@@ -61,18 +61,18 @@ class Vm(APIView):
                 })
 
     def post(self, request, format = None):
-        request_get = request.data
-        name = request_get.get('name')
-        user_id = request_get.get('user_id')
-        size = request_get.get('size')
-        ram = request_get.get('ram')
-        vcpus = request_get.get('vcpus')
-        os = request_get.get('os')
+        data = request.data
+        name = data.get('name')
+        user_id = data.get('user_id')
+        size = data.get('size')
+        ram = data.get('ram')
+        vcpus = data.get('vcpus')
+        os = data.get('os')
         if name == None or user_id == None:
             raise exceptions.ValidationError(detail = None)
 
-        domain = Domains.objects.filter(display_name = name, user_id = user_id)[0]
-        if domain != None :
+        count = Domains.objects.filter(display_name = name, user_id = user_id).count()
+        if 0 < count :
            return Response(status = status.HTTP_403_FORBIDDEN)
 
         if size == None:
@@ -94,14 +94,16 @@ class Vm(APIView):
         t_size = 0
         t_core = 0
         t_ram = 0
-        for server in VcServers.objects:
-            t_size = int(vc_server.free_size_gb) - size
-            t_core = int(vc_server.free_cpu_core) - vcpus
-            t_ram = int(vc_server.free_memory_byte) - ram
-            if 0 < t_size and  0 < t_core and 0 < t_ram:
+
+        for server in VcServers.objects.all():
+            print('a')
+            t_size = int(server.free_size_gb) - size
+            t_core = int(server.free_cpu_core) - vcpus
+            t_ram = int(server.free_memory_byte) - ram
+            if 0 < t_size and  0 < t_core and 0 < t_ram :
                 target_server = server
 
-        if target_server == None
+        if target_server == None:
              return Response(status = status.HTTP_503_SERVICE_UNAVAILABLE)
 
         credentials = pika.PlainCredentials('server1_dcm', '8nfdsS12gaf')
@@ -129,10 +131,10 @@ class Vm(APIView):
         return Response(status = status.HTTP_202_ACCEPTED)
 
     def put(self, request, format = None):
-        request_get = request.data
-        name = request_get.get('name')
-        user_id = request_get.get('user_id')
-        op = request_get.get('op')
+        data = request.data
+        name = data.get('name')
+        user_id = data.get('user_id')
+        op = data.get('op')
 
         if name == None or user_id == None or op == None:
             raise exceptions.ValidationError(detail = None)

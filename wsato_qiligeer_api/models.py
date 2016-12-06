@@ -9,8 +9,8 @@ class Domains(models.Model):
     server_id = models.IntegerField('serever id')
     size = models.IntegerField('size')
     ram = models.IntegerField('ram')
-    vcpus = models.IntegerField('vcpus') #　TODO size やるならこれ　http://y0m0r.hateblo.jp/entry/20121030/1351606235
-    ipv4_address = models.CharField('ipv4 address', max_length=255, blank=False) # IPAddressField
+    vcpus = models.IntegerField('vcpus')
+    ipv4_address = models.CharField('ipv4 address', max_length=255, blank=False)
     sshkey_path = models.CharField('sshkey path', max_length=255, blank=False)
     status = models.CharField('status', max_length=45)
     create_date = models.DateField('create date')
@@ -25,6 +25,8 @@ class VcServers(models.Model):
     id = models.IntegerField(max_length=45)
     name = models.CharField(max_length=45)
     free_size_gb = models.IntegerField()
+    free_cpu_core = models.IntegerField()
+    free_momory_byte = models.IntegerField()
     create_date = models.DateField()
     update_date = models.DateField()
     class Meta:
