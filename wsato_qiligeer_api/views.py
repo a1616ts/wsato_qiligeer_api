@@ -43,10 +43,11 @@ class Vm(APIView):
                 return Response(results)
 
         else:
-            domain = Domains.objects.filter(user_id = user_id, display_name = display_name)[0]
-            if domain == None:
+            domains = Domains.objects.filter(user_id = user_id, display_name = display_name)
+            if domains.count() < 1:
                 return Response(status = status.HTTP_404_NOT_FOUND)
             else:
+                domain = domains[0]
                 return Response({
                     'name': domain.display_name,
                     'os': domain.os,
@@ -91,17 +92,10 @@ class Vm(APIView):
             vcpus = int(vcpus)
 
         target_server = None
-        t_size = 0
-        t_core = 0
-        t_ram = 0
-
-        for server in VcServers.objects.all():
-            print('a')
-            t_size = int(server.free_size_gb) - size
-            t_core = int(server.free_cpu_core) - vcpus
-            t_ram = int(server.free_memory_byte) - ram
-            if 0 < t_size and  0 < t_core and 0 < t_ram :
+        for server in VcServers.objects.raw('SELECT * FROM vc_servers'):
+            if 0 < int(server.free_size_gb) - size and 0 < int(server.free_cpu_core) and 0 < int(server.free_memory_byte) :
                 target_server = server
+                break
 
         if target_server == None:
              return Response(status = status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -173,7 +167,6 @@ class Vm(APIView):
         return Response(status = status.HTTP_202_ACCEPTED)
 
     def delete(self, request, format = None):
-        print(request.data)
         data = request.data
         display_name = data.get('name')
         user_id = data.get('user_id')
