@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'testapi',
     'rest_framework',
 ]
 
@@ -50,6 +49,7 @@ MIDDLEWARE_CLASSES = [
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    #'wsato_qiligeer_api.middlewares.hookfunc',
 ]
 
 ROOT_URLCONF = 'wsato_qiligeer_api.urls'
@@ -75,13 +75,12 @@ WSGI_APPLICATION = 'wsato_qiligeer_api.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'test_db',
-        'USER': 'root',
-        'PASSWORD': '',
+        'NAME': 'wsato_qiligeer',
+        'USER': 'api_user',
+        'PASSWORD': 'apiUser@1115',
         'HOST': '',
         'PORT': '',
     }
