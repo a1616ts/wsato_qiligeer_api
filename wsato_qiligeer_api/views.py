@@ -11,23 +11,24 @@ from django.core import serializers
 import simplejson
 
 class Vm(APIView):
-    def get(self, request, format = None):
+    def get(self, request, format=None):
         data = request.GET
         display_name = data.get('name')
         user_id = data.get('user_id')
-        if user_id == None:
-            return Response(status = status.HTTP_403_FORBIDDEN)
 
-        if display_name == None:
-            domains = Domains.objects.filter(user_id = user_id)
+        if user_id is None:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        if display_name is None:
+            domains = Domains.objects.filter(user_id=user_id)
             if domains.count() < 1 :
-                return Response(status = status.HTTP_404_NOT_FOUND)
+                return Response(status=status.HTTP_404_NOT_FOUND)
             else:
                 results = []
                 count = 1
                 for domain in domains:
                     results.append({
-                        'id' : count,
+                        'id': count,
                         'name': domain.display_name,
                         'os': domain.os,
                         'status': domain.status,
@@ -43,9 +44,9 @@ class Vm(APIView):
                 return Response(results)
 
         else:
-            domains = Domains.objects.filter(user_id = user_id, display_name = display_name)
+            domains = Domains.objects.filter(user_id=user_id, display_name=display_name)
             if domains.count() < 1:
-                return Response(status = status.HTTP_404_NOT_FOUND)
+                return Response(status=status.HTTP_404_NOT_FOUND)
             else:
                 domain = domains[0]
                 return Response({
@@ -61,145 +62,119 @@ class Vm(APIView):
                     'update_date': domain.update_date,
                 })
 
-    def post(self, request, format = None):
-        data = request.data
-        name = data.get('name')
+    def post(self, request, format=None):
+        data    = request.data
+        name    = data.get('name')
         user_id = data.get('user_id')
-        size = data.get('size')
-        ram = data.get('ram')
-        vcpus = data.get('vcpus')
-        os = data.get('os')
-        if name == None or user_id == None:
-            raise exceptions.ValidationError(detail = None)
+        size    = data.get('size')
+        ram     = data.get('ram')
+        vcpus   = data.get('vcpus')
+        os      = data.get('os')
 
-        count = Domains.objects.filter(display_name = name, user_id = user_id).count()
-        if 0 < count :
-           return Response(status = status.HTTP_403_FORBIDDEN)
+        if name is None or user_id is None or 0 < Domains.objects.filter(display_name=name, user_id=user_id).count():
+            return Response(status=status.HTTP_403_FORBIDDEN)
 
-        if size == None:
+        if size is None:
             size = 10
         else:
             size = int(size)
 
-        if ram == None:
+        if ram is None:
             ram = 1024
         else:
             ram = int(ram)
 
-        if vcpus == None:
+        if vcpus is None:
             vcpus = 1
         else:
             vcpus = int(vcpus)
 
+        # Select vm server
         target_server = None
         for server in VcServers.objects.raw('SELECT * FROM vc_servers'):
-            if 0 < int(server.free_size_gb) - size and 0 < int(server.free_cpu_core) and 0 < int(server.free_memory_byte) :
+            if 0 < int(server.free_size_gb) - size and 0 < int(server.free_cpu_core) - vcpus and 0 < int(server.free_memory_byte) - ram :
                 target_server = server
                 break
 
         if target_server == None:
-             return Response(status = status.HTTP_503_SERVICE_UNAVAILABLE)
+             return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        credentials = pika.PlainCredentials('server1_dcm', '8nfdsS12gaf')
-        connection  = pika.BlockingConnection(pika.ConnectionParameters(
-                virtual_host = '/server1', credentials = credentials))
-        channel = connection.channel()
-        channel.queue_declare(queue = 'from_api_to_middleware', durable = True)
-        properties = pika.BasicProperties(
-                content_type = 'text/plain',
-                delivery_mode = 2)
+        # ENqueue
+        UsingRabbitMq.publish({
+            'op': 'create',
+            'user_id': user_id,
+            'name': name,
+            'size': size,
+            'ram': ram,
+            'vcpus': vcpus,
+            'os': os
+        })
+        return Response(status=status.HTTP_202_ACCEPTED)
 
-        enqueue_message = {
-            'op'          : 'create',
-            'user_id'      : user_id,
-            'name'         : name,
-            'size'         : size,
-            'ram'          : ram,
-            'vcpus'        : vcpus,
-            'os'           : os
-        }
-        channel.basic_publish(exchange = '',
-                              routing_key = 'from_api_to_middleware',
-                              body = json.dumps(enqueue_message))
-        connection.close()
-        return Response(status = status.HTTP_202_ACCEPTED)
-
-    def put(self, request, format = None):
-        data = request.data
-        name = data.get('name')
+    def put(self, request, format=None):
+        data    = request.data
+        name    = data.get('name')
         user_id = data.get('user_id')
-        op = data.get('op')
+        op      = data.get('op')
 
-        if name == None or user_id == None or op == None:
-            raise exceptions.ValidationError(detail = None)
+        if name is None or user_id is None:
+            return Response(status=status.HTTP_403_FORBIDDEN)
 
-        domain = Domains.objects.filter(display_name = name, user_id = user_id)[0]
-        if domain == None :
-            return Response(status = status.HTTP_404_NOT_FOUND)
+        domain = Domains.objects.filter(display_name=name, user_id=user_id)[0]
+        if domain is None or op is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-        if (op == 'resume' and domain.status != 'inactive') \
-            or (op == 'suspend' and domain.status != 'active') \
-            or (op == 'start' and domain.status != 'stop')  \
-            or (op == 'stop' and domain.status not in [ 'active', 'inactive']):
-            return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
+        if (op is 'resume' and domain.status is not 'inactive') \
+            or (op is 'suspend' and domain.status is not 'active') \
+            or (op is 'start' and domain.status is not 'stop')  \
+            or (op is 'stop' and domain.status not in [ 'active', 'inactive']):
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
-        connection  = pika.BlockingConnection(pika.ConnectionParameters(
-                virtual_host = '/server1', credentials = credentials))
-        channel = connection.channel()
+        # Enqueue
+        UsingRabbitMq.publish({
+            'op': op,
+            'user_id': user_id,
+            'name': name
+        })
+        return Response(status=status.HTTP_202_ACCEPTED)
 
-        channel.queue_declare(queue = 'from_api_to_middleware', durable = True)
-        properties = pika.BasicProperties(
-                content_type = 'text/plain',
-                delivery_mode = 2)
-
-        enqueue_message = {
-            'op'      : op,
-            'user_id' : user_id,
-            'name'    : name
-        }
-
-        channel.basic_publish(exchange = '',
-                              routing_key = 'from_api_to_middleware',
-                              body = json.dumps(enqueue_message))
-
-        connection.close()
-        return Response(status = status.HTTP_202_ACCEPTED)
-
-    def delete(self, request, format = None):
+    def delete(self, request, format=None):
         data = request.data
         display_name = data.get('name')
         user_id = data.get('user_id')
         op = data.get('op')
 
-        if display_name == None or user_id == None:
-            raise exceptions.ValidationError(detail = None)
+        if display_name is None or user_id is None:
+            raise exceptions.ValidationError(detail=None)
 
-        domain = Domains.objects.filter(display_name = display_name, user_id = user_id)[0]
-        if domain == None:
-            return Response(status = status.HTTP_404_NOT_FOUND)
+        domain = Domains.objects.filter(display_name=display_name, user_id=user_id)[0]
+        if domain is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-        if domain.status != 'close':
-            return Response(status = status.HTTP_406_NOT_ACCEPTABLE)
+        if domain.status is not 'close':
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
 
+        # Enqueue
+        UsingRabbitMq.publish({
+            'op': 'destroy',
+            'user_id': user_id,
+            'display_name': display_name
+        })
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+class UsingRabbitMq:
+    def publish(message):
         credentials = pika.PlainCredentials('server1_api', '34FS1Ajkns')
         connection  = pika.BlockingConnection(pika.ConnectionParameters(
-                virtual_host = '/server1', credentials = credentials))
+            virtual_host='/server1', credentials=credentials))
         channel = connection.channel()
 
-        channel.queue_declare(queue = 'from_api_to_middleware', durable = True)
+        channel.queue_declare(queue='from_api_to_middleware', durable=True)
         properties = pika.BasicProperties(
-                content_type = 'text/plain',
-                delivery_mode = 2)
+            content_type='text/plain',
+            delivery_mode=2)
 
-        enqueue_message = {
-            'op'          : 'destroy',
-            'user_id'      : user_id,
-            'display_name' : display_name
-        }
-
-        channel.basic_publish(exchange = '',
-                              routing_key = 'from_api_to_middleware',
-                              body = json.dumps(enqueue_message))
+        channel.basic_publish(exchange='',
+            routing_key='from_api_to_middleware',
+            body=json.dumps(message))
         connection.close()
-        return Response(status = status.HTTP_202_ACCEPTED)
